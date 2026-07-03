@@ -57,6 +57,43 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  async validateGoogleUser(googleUser: {
+    googleId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatar: string | null;
+  }) {
+    let user = await this.prisma.user.findUnique({
+      where: { email: googleUser.email },
+    });
+
+    if (user) {
+      if (!user.googleId) {
+        user = await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId: googleUser.googleId,
+            avatar: user.avatar ?? googleUser.avatar,
+          },
+        });
+      }
+    } else {
+      user = await this.prisma.user.create({
+        data: {
+          email: googleUser.email,
+          firstName: googleUser.firstName,
+          lastName: googleUser.lastName,
+          avatar: googleUser.avatar,
+          googleId: googleUser.googleId,
+          provider: 'GOOGLE',
+        },
+      });
+    }
+
+    return this.buildAuthResponse(user);
+  }
+
   private buildAuthResponse(user: {
     id: string;
     email: string;
