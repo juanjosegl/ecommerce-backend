@@ -2,7 +2,10 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Inject,
 } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -10,7 +13,10 @@ import { slugify } from '../common/utils/slugify';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
 
   async create(dto: CreateProductDto) {
     const slug = slugify(dto.name);
@@ -34,7 +40,7 @@ export class ProductsService {
       throw new ConflictException(`SKU(s) ya en uso: ${duplicated}`);
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const product = await tx.product.create({
         data: {
           name: dto.name,
@@ -72,10 +78,20 @@ export class ProductsService {
         include: { variants: true, category: true, images: true },
       });
     });
+
+    await this.invalidateProductsCache();
+    return result;
   }
 
   async findAll(categoryId?: string) {
-    return this.prisma.product.findMany({
+    const cacheKey = `products:all:${categoryId ?? 'no-category'}`;
+    const cached = await this.cacheManager.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const products = await this.prisma.product.findMany({
       where: {
         isActive: true,
         ...(categoryId ? { categoryId } : {}),
@@ -86,9 +102,19 @@ export class ProductsService {
         images: { orderBy: { order: 'asc' } },
       },
     });
+
+    await this.cacheManager.set(cacheKey, products, 60000);
+    return products;
   }
 
   async findOne(id: string) {
+    const cacheKey = `products:one:${id}`;
+    const cached = await this.cacheManager.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -102,6 +128,7 @@ export class ProductsService {
       throw new NotFoundException('Producto no encontrado');
     }
 
+    await this.cacheManager.set(cacheKey, product, 60000);
     return product;
   }
 
@@ -113,17 +140,33 @@ export class ProductsService {
       data.slug = slugify(dto.name);
     }
 
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id },
       data,
     });
+
+    await this.invalidateProductsCache();
+    return updated;
   }
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.product.update({
+    const removed = await this.prisma.product.update({
       where: { id },
       data: { isActive: false },
     });
+
+    await this.invalidateProductsCache();
+    return removed;
+  }
+
+  private async invalidateProductsCache() {
+    const store: any = (this.cacheManager as any).store;
+    if (store?.client?.keys) {
+      const keys = await store.client.keys('products:*');
+      if (keys.length > 0) {
+        await store.client.del(keys);
+      }
+    }
   }
 }

@@ -7,6 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { OrdersModule } from './orders/orders.module';
+import { UsersModule } from './users/users.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { InventoryModule } from './inventory/inventory.module';
     CategoriesModule,
     ProductsModule,
     InventoryModule,
+    OrdersModule,
+    UsersModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],
