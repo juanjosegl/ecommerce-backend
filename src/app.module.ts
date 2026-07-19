@@ -12,6 +12,7 @@ import { OrdersModule } from './orders/orders.module';
 import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
     UsersModule,
     RedisModule,
     ScheduledTasksModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [AppService],

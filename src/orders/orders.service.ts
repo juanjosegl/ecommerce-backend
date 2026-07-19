@@ -7,10 +7,14 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async create(dto: CreateOrderDto, userId: string) {
     const variantIds = dto.items.map((item) => item.variantId);
@@ -20,9 +24,7 @@ export class OrdersService {
     });
 
     if (variants.length !== variantIds.length) {
-      throw new NotFoundException(
-        'Una o más variantes de producto no existen',
-      );
+      throw new NotFoundException('Una o más variantes de producto no existen');
     }
 
     for (const item of dto.items) {
@@ -40,7 +42,9 @@ export class OrdersService {
       totalAmount += Number(variant.price) * item.quantity;
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
         data: {
           userId,
@@ -88,6 +92,22 @@ export class OrdersService {
         },
       });
     });
+
+    if (user && result) {
+      this.emailService.sendOrderConfirmationEmail(
+        user.email,
+        user.firstName,
+        result.id,
+        Number(result.totalAmount),
+        result.items.map((item) => ({
+          productName: item.variant.product.name,
+          quantity: item.quantity,
+          price: Number(item.priceAtSale),
+        })),
+      );
+    }
+
+    return result;
   }
 
   async findMyOrders(userId: string) {

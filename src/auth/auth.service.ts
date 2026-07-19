@@ -8,12 +8,14 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -35,6 +37,8 @@ export class AuthService {
         lastName: dto.lastName,
       },
     });
+
+    this.emailService.sendWelcomeEmail(user.email, user.firstName);
 
     return this.buildAuthResponse(user);
   }
