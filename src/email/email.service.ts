@@ -94,7 +94,8 @@ export class EmailService {
   ) {
     const itemsHtml = variants
       .map(
-        (v) => `<li>${v.productName} (${v.sku}): ${v.stock} unidades restantes</li>`,
+        (v) =>
+          `<li>${v.productName} (${v.sku}): ${v.stock} unidades restantes</li>`,
       )
       .join('');
 
@@ -114,6 +115,35 @@ export class EmailService {
       this.logger.log(`Alerta de bajo stock enviada a ${to}`);
     } catch (error) {
       this.logger.error(`Error enviando alerta de bajo stock a ${to}`, error);
+    }
+  }
+
+  async sendPasswordResetEmail(
+    to: string,
+    firstName: string,
+    resetUrl: string,
+  ) {
+    try {
+      await this.resend.emails.send({
+        from: this.fromEmail,
+        to,
+        subject: 'Recupera tu contraseña',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1>Hola, ${firstName}</h1>
+            <p>Recibimos una solicitud para restablecer tu contraseña. Haz clic en el siguiente enlace para continuar:</p>
+            <p>
+              <a href="${resetUrl}" style="display: inline-block; background: #0F6E5C; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
+                Restablecer contraseña
+              </a>
+            </p>
+            <p>Este enlace expira en 1 hora. Si no solicitaste este cambio, ignora este correo.</p>
+          </div>
+        `,
+      });
+      this.logger.log(`Email de recuperación enviado a ${to}`);
+    } catch (error) {
+      this.logger.error(`Error enviando email de recuperación a ${to}`, error);
     }
   }
 }

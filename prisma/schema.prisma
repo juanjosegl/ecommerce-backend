@@ -27,6 +27,8 @@ model User {
   role      Role         @default(CUSTOMER)
   provider  AuthProvider @default(LOCAL)
   googleId  String?      @unique
+  resetPasswordToken   String?   @unique
+  resetPasswordExpires DateTime?
   isActive  Boolean      @default(true)
   orders    Order[]
   createdAt DateTime     @default(now())
