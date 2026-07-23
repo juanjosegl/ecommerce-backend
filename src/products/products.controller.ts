@@ -15,6 +15,8 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { AddVariantDto, UpdateVariantDto } from './dto/manage-variant.dto';
+import { AddImageDto } from './dto/manage-image.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -49,5 +51,36 @@ export class ProductsController {
   @Roles('ADMIN')
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
+  }
+
+  @Post(':id/variants')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  addVariant(@Param('id') id: string, @Body() dto: AddVariantDto) {
+    return this.productsService.addVariant(id, dto);
+  }
+
+  @Patch('variants/:variantId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  updateVariant(
+    @Param('variantId') variantId: string,
+    @Body() dto: UpdateVariantDto,
+  ) {
+    return this.productsService.updateVariant(variantId, dto);
+  }
+
+  @Post(':id/images')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  addImage(@Param('id') id: string, @Body() dto: AddImageDto) {
+    return this.productsService.addImage(id, dto);
+  }
+
+  @Delete('images/:imageId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  removeImage(@Param('imageId') imageId: string) {
+    return this.productsService.removeImage(imageId);
   }
 }

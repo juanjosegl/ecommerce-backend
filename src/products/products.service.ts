@@ -10,6 +10,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { slugify } from '../common/utils/slugify';
+import { AddVariantDto, UpdateVariantDto } from './dto/manage-variant.dto';
+import { AddImageDto } from './dto/manage-image.dto';
 
 @Injectable()
 export class ProductsService {
@@ -158,6 +160,79 @@ export class ProductsService {
 
     await this.invalidateProductsCache();
     return removed;
+  }
+
+  async addVariant(productId: string, dto: AddVariantDto) {
+    await this.findOne(productId);
+
+    const existingSku = await this.prisma.productVariant.findUnique({
+      where: { sku: dto.sku },
+    });
+
+    if (existingSku) {
+      throw new ConflictException('Ya existe una variante con ese SKU');
+    }
+
+    const variant = await this.prisma.productVariant.create({
+      data: {
+        productId,
+        sku: dto.sku,
+        attributes: dto.attributes,
+        price: dto.price,
+        stock: 0,
+      },
+    });
+
+    await this.invalidateProductsCache();
+    return variant;
+  }
+
+  async updateVariant(variantId: string, dto: UpdateVariantDto) {
+    const variant = await this.prisma.productVariant.findUnique({
+      where: { id: variantId },
+    });
+
+    if (!variant) {
+      throw new NotFoundException('Variante no encontrada');
+    }
+
+    const updated = await this.prisma.productVariant.update({
+      where: { id: variantId },
+      data: dto,
+    });
+
+    await this.invalidateProductsCache();
+    return updated;
+  }
+
+  async addImage(productId: string, dto: AddImageDto) {
+    await this.findOne(productId);
+
+    const image = await this.prisma.productImage.create({
+      data: {
+        productId,
+        url: dto.url,
+        order: dto.order ?? 0,
+        variantId: dto.variantId,
+      },
+    });
+
+    await this.invalidateProductsCache();
+    return image;
+  }
+
+  async removeImage(imageId: string) {
+    const image = await this.prisma.productImage.findUnique({
+      where: { id: imageId },
+    });
+
+    if (!image) {
+      throw new NotFoundException('Imagen no encontrada');
+    }
+
+    await this.prisma.productImage.delete({ where: { id: imageId } });
+    await this.invalidateProductsCache();
+    return { message: 'Imagen eliminada' };
   }
 
   private async invalidateProductsCache() {

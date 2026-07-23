@@ -13,6 +13,7 @@ import { UsersModule } from './users/users.module';
 import { RedisModule } from './redis/redis.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { EmailModule } from './email/email.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { EmailModule } from './email/email.module';
     RedisModule,
     ScheduledTasksModule,
     EmailModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
