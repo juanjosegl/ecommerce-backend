@@ -14,9 +14,18 @@ import { RedisModule } from './redis/redis.module';
 import { ScheduledTasksModule } from './scheduled-tasks/scheduled-tasks.module';
 import { EmailModule } from './email/email.module';
 import { UploadModule } from './upload/upload.module';
+import { ThrottlerModule, ThrottlerGuard, seconds } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
+    ThrottlerModule.forRoot([
+      {
+        ttl: seconds(60),
+        limit: 30,
+      },
+    ]),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
@@ -32,8 +41,15 @@ import { UploadModule } from './upload/upload.module';
     ScheduledTasksModule,
     EmailModule,
     UploadModule,
+    HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -85,7 +85,7 @@ export class ProductsService {
     return result;
   }
 
-  async findAll(categoryId?: string) {
+  async findAll(categoryId?: string, page = 1, limit = 20) {
     const cacheKey = `products:all:${categoryId ?? 'no-category'}`;
     const cached = await this.cacheManager.get(cacheKey);
 
@@ -103,6 +103,8 @@ export class ProductsService {
         variants: true,
         images: { orderBy: { order: 'asc' } },
       },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
     await this.cacheManager.set(cacheKey, products, 60000);
