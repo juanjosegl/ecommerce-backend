@@ -11,11 +11,14 @@ import { createKeyv } from '@keyv/redis';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
-        const host = configService.get<string>('REDIS_HOST', 'localhost');
-        const port = configService.get<number>('REDIS_PORT', 6379);
+        const redisUrl = configService.get<string>('REDIS_URL');
+
+        const connectionString = redisUrl
+          ? redisUrl
+          : `redis://${configService.get<string>('REDIS_HOST', 'localhost')}:${configService.get<number>('REDIS_PORT', 6379)}`;
 
         return {
-          stores: [createKeyv(`redis://${host}:${port}`)],
+          stores: [createKeyv(connectionString)],
           ttl: 60000,
         };
       },

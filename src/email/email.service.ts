@@ -21,7 +21,7 @@ export class EmailService {
       await this.resend.emails.send({
         from: this.fromEmail,
         to,
-        subject: '¡Bienvenido a Ecommerce Portfolio!',
+        subject: '¡Bienvenido a AM Shop!',
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
             <h1>¡Hola, ${firstName}!</h1>
