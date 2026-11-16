@@ -7,7 +7,7 @@ A production-grade REST API for an enterprise e-commerce platform, built to demo
 **Frontend repo:** [ecommerce-frontend](https://github.com/juanjosegl/ecommerce-frontend)
 **Live storefront:** https://ecommerce-frontend-ivory-nu.vercel.app
 
-> ⚠️ This runs on free-tier hosting (Render). The API may take 30–50 seconds to respond on the first request after a period of inactivity while the instance wakes up.
+> **Note:** this runs on free-tier hosting (Render). The API may take 30–50 seconds to respond on the first request after a period of inactivity while the instance wakes up.
 
 ---
 
@@ -18,6 +18,9 @@ Most portfolio e-commerce projects stop at "list products, place an order." This
 - **Variants, not flat products.** A product like "Basic T-Shirt" has independent variants (size × color), each with its own SKU, price, and stock — the same model Shopify and Amazon use internally.
 - **Stock is never edited directly.** Every change to inventory happens through an auditable `InventoryMovement` (IN/OUT with a reason), so at any point you can answer "why is stock at this number?"
 - **Orders are transactional.** Creating an order validates stock for every line item, decrements stock, records inventory movements, and calculates totals — all inside a single Prisma `$transaction`. If any step fails, nothing is committed.
+- **No overselling under concurrency.** Stock is checked and decremented in a single conditional `UPDATE ... WHERE stock >= qty`, so two simultaneous checkouts for the last unit can't both succeed. Inventory movements use the same pattern.
+- **Order lifecycle is a state machine.** Only valid transitions are accepted (`PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED`, cancellable until shipped). Cancelling, by an admin or by the abandoned-order cron job, returns every unit to stock with an auditable `IN` movement, guarded against double restocks.
+- **The cache can fail without taking the API down.** Product reads are cached in Redis under a version stamp (one write invalidates everything), and every cache call has a short timeout that falls back to the database.
 - **Prices are frozen at purchase time.** An `OrderItem` stores `priceAtSale`, so a later price change never rewrites order history.
 - **Hybrid authentication.** Email/password and Google OAuth coexist. If a user registers with email and later signs in with Google using the same address, the accounts are merged automatically instead of creating a duplicate.
 - **No public endpoint can create an admin.** `role` is never accepted from a public registration payload. The only way to create an admin is via a seed script or an existing admin using a protected endpoint.
@@ -149,6 +152,12 @@ Change this before using the seed script against any environment you care about.
 - **API:** Render (free tier — build command runs `prisma generate` + `nest build`; start command runs `prisma migrate deploy` before booting, so pending migrations apply automatically on every deploy)
 - **Images:** Cloudinary (free tier)
 - **Email:** Resend (free tier — 100 emails/day)
+
+---
+
+## Tests
+
+`pnpm test` runs unit tests for the order service (price calculation from the database, merging repeated lines, rejecting inactive products, failing atomically when stock runs out mid-checkout, valid/invalid status transitions, restocking on cancel) and for checkout address validation.
 
 ---
 

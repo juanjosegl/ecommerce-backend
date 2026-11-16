@@ -1,10 +1,11 @@
-import { IsString, IsInt, Min } from 'class-validator';
+import { IsUUID, IsInt, Min, Max } from 'class-validator';
 
 export class CreateOrderItemDto {
-  @IsString()
+  @IsUUID()
   variantId: string;
 
   @IsInt()
   @Min(1)
+  @Max(100)
   quantity: number;
 }

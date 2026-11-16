@@ -1,19 +1,17 @@
-import { IsEmail, IsString, MinLength, IsIn, IsOptional } from 'class-validator';
+import { IsEmail, IsIn, IsOptional } from 'class-validator';
+import { PersonName, StrongPassword } from '../../auth/dto/password.rules';
 
 export class CreateUserDto {
   @IsEmail()
   email: string;
 
-  @IsString()
-  @MinLength(6)
+  @StrongPassword()
   password: string;
 
-  @IsString()
-  @MinLength(2)
+  @PersonName()
   firstName: string;
 
-  @IsString()
-  @MinLength(2)
+  @PersonName()
   lastName: string;
 
   @IsIn(['ADMIN', 'CUSTOMER'])

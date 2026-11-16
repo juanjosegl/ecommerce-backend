@@ -10,6 +10,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { slugify } from '../common/utils/slugify';
+import {
+  cacheGet,
+  cacheSet,
+  productsCacheKey,
+  invalidateProductsCache,
+} from '../common/utils/products-cache';
 import { AddVariantDto, UpdateVariantDto } from './dto/manage-variant.dto';
 import { AddImageDto } from './dto/manage-image.dto';
 
@@ -86,8 +92,13 @@ export class ProductsService {
   }
 
   async findAll(categoryId?: string, page = 1, limit = 20) {
-    const cacheKey = `products:all:${categoryId ?? 'no-category'}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    page = Number.isFinite(page) && page > 0 ? page : 1;
+    limit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 100) : 20;
+    const cacheKey = await productsCacheKey(
+      this.cacheManager,
+      `all:${categoryId ?? 'none'}:${page}:${limit}`,
+    );
+    const cached = await cacheGet(this.cacheManager, cacheKey);
 
     if (cached) {
       return cached;
@@ -100,20 +111,21 @@ export class ProductsService {
       },
       include: {
         category: true,
-        variants: true,
+        variants: { where: { isActive: true } },
         images: { orderBy: { order: 'asc' } },
       },
+      orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
     });
 
-    await this.cacheManager.set(cacheKey, products, 60000);
+    await cacheSet(this.cacheManager, cacheKey, products);
     return products;
   }
 
   async findOne(id: string) {
-    const cacheKey = `products:one:${id}`;
-    const cached = await this.cacheManager.get(cacheKey);
+    const cacheKey = await productsCacheKey(this.cacheManager, `one:${id}`);
+    const cached = await cacheGet(this.cacheManager, cacheKey);
 
     if (cached) {
       return cached;
@@ -132,7 +144,7 @@ export class ProductsService {
       throw new NotFoundException('Producto no encontrado');
     }
 
-    await this.cacheManager.set(cacheKey, product, 60000);
+    await cacheSet(this.cacheManager, cacheKey, product);
     return product;
   }
 
@@ -237,13 +249,7 @@ export class ProductsService {
     return { message: 'Imagen eliminada' };
   }
 
-  private async invalidateProductsCache() {
-    const store: any = (this.cacheManager as any).store;
-    if (store?.client?.keys) {
-      const keys = await store.client.keys('products:*');
-      if (keys.length > 0) {
-        await store.client.del(keys);
-      }
-    }
+  private invalidateProductsCache() {
+    return invalidateProductsCache(this.cacheManager);
   }
 }

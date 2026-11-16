@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
+import { cancelOrderTx } from '../orders/order-status';
 
 @Injectable()
 export class ScheduledTasksService {
@@ -30,9 +31,7 @@ export class ScheduledTasksService {
       `Se encontraron ${lowStockVariants.length} variante(s) con bajo stock:`,
     );
     lowStockVariants.forEach((v) => {
-      this.logger.warn(
-        `- ${v.product.name} (${v.sku}): ${v.stock} unidades`,
-      );
+      this.logger.warn(`- ${v.product.name} (${v.sku}): ${v.stock} unidades`);
     });
 
     // Cuando construyamos el módulo de Emails, aquí vamos a
@@ -51,7 +50,6 @@ export class ScheduledTasksService {
         status: 'PENDING',
         createdAt: { lt: cutoffTime },
       },
-      include: { items: true },
     });
 
     if (abandonedOrders.length === 0) {
@@ -60,36 +58,20 @@ export class ScheduledTasksService {
     }
 
     for (const order of abandonedOrders) {
-      await this.prisma.$transaction(async (tx) => {
-        for (const item of order.items) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: item.variantId },
-          });
-
-          if (variant) {
-            await tx.productVariant.update({
-              where: { id: item.variantId },
-              data: { stock: variant.stock + item.quantity },
-            });
-
-            await tx.inventoryMovement.create({
-              data: {
-                variantId: item.variantId,
-                type: 'IN',
-                quantity: item.quantity,
-                reason: `Orden ${order.id} cancelada automáticamente (abandonada)`,
-              },
-            });
-          }
-        }
-
-        await tx.order.update({
-          where: { id: order.id },
-          data: { status: 'CANCELLED' },
-        });
-      });
-
-      this.logger.warn(`Orden ${order.id} cancelada por abandono.`);
+      try {
+        await this.prisma.$transaction((tx) =>
+          cancelOrderTx(
+            tx,
+            order.id,
+            'PENDING',
+            `Orden ${order.id} cancelada automáticamente (abandonada)`,
+          ),
+        );
+        this.logger.warn(`Orden ${order.id} cancelada por abandono.`);
+      } catch {
+        // An admin moved the order in the meantime; nothing to restock.
+        this.logger.log(`Orden ${order.id} cambió de estado, se omite.`);
+      }
     }
   }
 }
