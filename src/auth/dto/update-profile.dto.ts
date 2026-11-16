@@ -1,13 +1,12 @@
-import { IsString, MinLength, IsOptional } from 'class-validator';
+import { IsOptional } from 'class-validator';
+import { PersonName } from './password.rules';
 
 export class UpdateProfileDto {
-  @IsString()
-  @MinLength(2)
   @IsOptional()
+  @PersonName()
   firstName?: string;
 
-  @IsString()
-  @MinLength(2)
   @IsOptional()
+  @PersonName()
   lastName?: string;
 }

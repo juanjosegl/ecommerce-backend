@@ -48,7 +48,11 @@ export class OrdersController {
   @Patch(':id/status')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(id, dto);
+  updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderStatusDto,
+    @CurrentUser() user: { id: string },
+  ) {
+    return this.ordersService.updateStatus(id, dto, user.id);
   }
 }

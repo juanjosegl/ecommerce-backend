@@ -1,18 +1,20 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsEmail } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { PersonName, StrongPassword } from './password.rules';
 
 export class RegisterDto {
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsEmail()
   email: string;
 
-  @IsString()
-  @MinLength(6)
+  @StrongPassword()
   password: string;
 
-  @IsString()
-  @MinLength(2)
+  @PersonName()
   firstName: string;
 
-  @IsString()
-  @MinLength(2)
+  @PersonName()
   lastName: string;
 }
