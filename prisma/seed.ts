@@ -15,8 +15,8 @@ function slugify(text: string): string {
     .replace(/--+/g, '-');
 }
 
-function placeholderImage(seed: string): string {
-  return `https://picsum.photos/seed/${seed}/800/800`;
+function productImage(unsplashId: string): string {
+  return `https://images.unsplash.com/photo-${unsplashId}?w=800&h=800&fit=crop&q=80`;
 }
 
 async function seedAdmin() {
@@ -142,6 +142,7 @@ interface ProductSeed {
   categorySlug: string;
   basePrice: number;
   skuPrefix: string;
+  unsplashId: string;
   variants: VariantSeed[];
 }
 
@@ -153,6 +154,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'camisetas',
     basePrice: 65000,
     skuPrefix: 'CAM-OVR',
+    unsplashId: '1571455786673-9d9d6c194f90',
     variants: [
       { skuSuffix: 'S-NEG', size: 'S', color: 'Negro', stock: 18 },
       { skuSuffix: 'M-NEG', size: 'M', color: 'Negro', stock: 22 },
@@ -166,6 +168,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'camisetas',
     basePrice: 45000,
     skuPrefix: 'CAM-BAS',
+    unsplashId: '1521572163474-6864f9cf17ab',
     variants: [
       { skuSuffix: 'S-BLA', size: 'S', color: 'Blanco', stock: 30 },
       { skuSuffix: 'M-GRI', size: 'M', color: 'Gris', stock: 25 },
@@ -179,6 +182,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'pantalones',
     basePrice: 120000,
     skuPrefix: 'JEA-SLM',
+    unsplashId: '1714143136372-ddaf8b606da7',
     variants: [
       { skuSuffix: '30-AZU', size: '30', color: 'Azul', stock: 12 },
       { skuSuffix: '32-AZU', size: '32', color: 'Azul', stock: 16 },
@@ -192,6 +196,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'pantalones',
     basePrice: 135000,
     skuPrefix: 'PAN-CAR',
+    unsplashId: '1473966968600-fa801b869a1a',
     variants: [
       { skuSuffix: 'M-VER', size: 'M', color: 'Verde', stock: 14 },
       { skuSuffix: 'L-BEI', size: 'L', color: 'Beige', stock: 11 },
@@ -204,6 +209,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'chaquetas',
     basePrice: 180000,
     skuPrefix: 'CHA-BOM',
+    unsplashId: '1591047139829-d91aecb6caea',
     variants: [
       { skuSuffix: 'M-NEG', size: 'M', color: 'Negro', stock: 9 },
       { skuSuffix: 'L-AZU', size: 'L', color: 'Azul', stock: 7 },
@@ -216,6 +222,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'chaquetas',
     basePrice: 150000,
     skuPrefix: 'CHA-JEA',
+    unsplashId: '1611312449408-fcece27cdbb7',
     variants: [
       { skuSuffix: 'S-AZU', size: 'S', color: 'Azul', stock: 8 },
       { skuSuffix: 'M-AZU', size: 'M', color: 'Azul', stock: 13 },
@@ -228,6 +235,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'tenis',
     basePrice: 210000,
     skuPrefix: 'TEN-URB',
+    unsplashId: '1608379743498-ac08f6d022ba',
     variants: [
       { skuSuffix: '39-BLA', size: '39', color: 'Blanco', stock: 10 },
       { skuSuffix: '40-BLA', size: '40', color: 'Blanco', stock: 14 },
@@ -241,6 +249,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'tenis',
     basePrice: 250000,
     skuPrefix: 'TEN-RUN',
+    unsplashId: '1560769629-975ec94e6a86',
     variants: [
       { skuSuffix: '40-NEG', size: '40', color: 'Negro', stock: 6 },
       { skuSuffix: '41-GRI', size: '41', color: 'Gris', stock: 8 },
@@ -253,6 +262,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'accesorios',
     basePrice: 45000,
     skuPrefix: 'ACC-GOR',
+    unsplashId: '1737666636073-f15d9762cf83',
     variants: [
       { skuSuffix: 'UNI-NEG', size: 'Única', color: 'Negro', stock: 25 },
     ],
@@ -264,6 +274,7 @@ const PRODUCTS: ProductSeed[] = [
     categorySlug: 'accesorios',
     basePrice: 95000,
     skuPrefix: 'ACC-MOC',
+    unsplashId: '1509762774605-f07235a08f1f',
     variants: [
       { skuSuffix: 'UNI-GRI', size: 'Única', color: 'Gris', stock: 17 },
     ],
@@ -273,12 +284,22 @@ const PRODUCTS: ProductSeed[] = [
 async function seedProducts(categoryIds: Record<string, string>) {
   let created = 0;
   let skipped = 0;
+  let imagesUpdated = 0;
 
   for (const productSeed of PRODUCTS) {
     const slug = slugify(productSeed.name);
     const existing = await prisma.product.findUnique({ where: { slug } });
 
     if (existing) {
+      // Swap old picsum placeholders for the real photo; admin-uploaded images are left alone.
+      const { count } = await prisma.productImage.updateMany({
+        where: {
+          productId: existing.id,
+          url: { startsWith: 'https://picsum.photos/' },
+        },
+        data: { url: productImage(productSeed.unsplashId) },
+      });
+      imagesUpdated += count;
       skipped++;
       continue;
     }
@@ -304,7 +325,7 @@ async function seedProducts(categoryIds: Record<string, string>) {
       await tx.productImage.create({
         data: {
           productId: product.id,
-          url: placeholderImage(slug),
+          url: productImage(productSeed.unsplashId),
           order: 0,
         },
       });
@@ -334,7 +355,9 @@ async function seedProducts(categoryIds: Record<string, string>) {
     created++;
   }
 
-  console.log(`Productos creados: ${created}, ya existentes: ${skipped}`);
+  console.log(
+    `Productos creados: ${created}, ya existentes: ${skipped}, imágenes actualizadas: ${imagesUpdated}`,
+  );
 }
 
 async function main() {
